@@ -295,8 +295,8 @@ void WebviewWindowsPlugin::CreateVisualInstance(
       track_brush.try_as<ABI::Windows::UI::Composition::ICompositionBrush>();
   track_sprite->put_Brush(track_brush_base.get());
   auto track_visual = track_sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
-  track_visual->put_Size({120, 60});
-  track_visual->put_Offset({40, 20});
+  track_visual->put_Size({static_cast<float>(200), static_cast<float>(100)});
+  track_visual->put_Offset({0, 0});
 
   winrt::com_ptr<ABI::Windows::UI::Composition::ISpriteVisual> knob_sprite;
   if (FAILED(compositor->CreateSpriteVisual(knob_sprite.put()))) {
@@ -311,14 +311,14 @@ void WebviewWindowsPlugin::CreateVisualInstance(
       knob_brush.try_as<ABI::Windows::UI::Composition::ICompositionBrush>();
   knob_sprite->put_Brush(knob_brush_base.get());
   auto knob_visual = knob_sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
-  knob_visual->put_Size({52, 52});
-  knob_visual->put_Offset({74, 24});
+  knob_visual->put_Size({40, 40});
+  knob_visual->put_Offset({160, 30});
 
   // Insert visuals into root
   winrt::com_ptr<ABI::Windows::UI::Composition::IVisualCollection> children;
   root->get_Children(children.put());
   children->InsertAtTop(knob_visual.get());
-  children->InsertAtTop(track_visual.get());
+  children->InsertAtTop(track_visual.get());}
 
   auto bridge = std::make_unique<VisualBridge>(
       messenger_, textures_, platform_->graphics_context(), root_visual.get());

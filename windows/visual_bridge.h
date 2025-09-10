@@ -31,6 +31,8 @@ class VisualBridge {
   flutter::TextureRegistrar* texture_registrar_;
   int64_t texture_id_ = 0;
 
+  winrt::com_ptr<ABI::Windows::UI::Composition::IVisual> root_visual_;
+
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue>& method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);

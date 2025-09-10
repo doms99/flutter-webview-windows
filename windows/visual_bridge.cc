@@ -12,6 +12,7 @@ VisualBridge::VisualBridge(flutter::BinaryMessenger* messenger,
                            GraphicsContext* graphics_context,
                            ABI::Windows::UI::Composition::IVisual* visual)
     : texture_registrar_(texture_registrar) {
+  root_visual_ = visual;
   texture_bridge_ = std::make_unique<TextureBridgeGpu>(graphics_context, visual);
 
   flutter_texture_ = std::make_unique<flutter::TextureVariant>(
@@ -69,7 +70,12 @@ void VisualBridge::HandleMethodCall(
     if (!args || args->size() < 2) {
       return result->Error("invalidArguments");
     }
-    // TextureBridge only needs to know size changes to recreate frame pool.
+    // Update visual size to match widget, then notify capture to recreate buffers.
+    const auto w = std::get_if<double>(&(*args)[0]);
+    const auto h = std::get_if<double>(&(*args)[1]);
+    if (w && h && root_visual_) {
+      root_visual_->put_Size({static_cast<float>(*w), static_cast<float>(*h)});
+    }
     texture_bridge_->NotifySurfaceSizeChanged();
     return result->Success();
   }
