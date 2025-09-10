@@ -295,8 +295,14 @@ void WebviewWindowsPlugin::CreateVisualInstance(
       track_brush.try_as<ABI::Windows::UI::Composition::ICompositionBrush>();
   track_sprite->put_Brush(track_brush_base.get());
   auto track_visual = track_sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
-  track_visual->put_Size({static_cast<float>(200), static_cast<float>(100)});
   track_visual->put_Offset({0, 0});
+  auto track_visual2 = track_visual.try_as<ABI::Windows::UI::Composition::IVisual2>();
+  if (track_visual2) {
+    track_visual2->put_RelativeSizeAdjustment({1.0f, 1.0f});
+  } else {
+    // Fallback to fixed size
+    track_visual->put_Size({static_cast<float>(200), static_cast<float>(100)});
+  }
 
   winrt::com_ptr<ABI::Windows::UI::Composition::ISpriteVisual> knob_sprite;
   if (FAILED(compositor->CreateSpriteVisual(knob_sprite.put()))) {
@@ -311,8 +317,15 @@ void WebviewWindowsPlugin::CreateVisualInstance(
       knob_brush.try_as<ABI::Windows::UI::Composition::ICompositionBrush>();
   knob_sprite->put_Brush(knob_brush_base.get());
   auto knob_visual = knob_sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
-  knob_visual->put_Size({40, 40});
-  knob_visual->put_Offset({160, 30});
+  auto knob_visual2 = knob_visual.try_as<ABI::Windows::UI::Composition::IVisual2>();
+  if (knob_visual2) {
+    // Size as 40% height square; position at 80% width, centered vertically
+    knob_visual2->put_RelativeSizeAdjustment({0.2f, 0.4f});
+    knob_visual2->put_RelativeOffsetAdjustment({0.8f, 0.3f});
+  } else {
+    knob_visual->put_Size({40, 40});
+    knob_visual->put_Offset({160, 30});
+  }
 
   // Insert visuals into root
   winrt::com_ptr<ABI::Windows::UI::Composition::IVisualCollection> children;
