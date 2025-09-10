@@ -293,7 +293,9 @@ void WebviewWindowsPlugin::CreateVisualInstance(
           ABI::Windows::UI::Color{255, 0, 120, 215}, color_brush.put()))) {
     return result->Error("visual_creation_failed", "Brush creation failed");
   }
-  sprite->put_Brush(color_brush.get());
+  auto base_brush =
+      color_brush.try_as<ABI::Windows::UI::Composition::ICompositionBrush>();
+  sprite->put_Brush(base_brush.get());
   auto sprite_visual = sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
   sprite_visual->put_Size({800, 600});
 
