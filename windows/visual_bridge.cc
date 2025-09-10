@@ -38,6 +38,9 @@ VisualBridge::VisualBridge(flutter::BinaryMessenger* messenger,
       [this](const auto& call, auto result) {
         HandleMethodCall(call, std::move(result));
       });
+
+  // Start capture immediately so frames are produced.
+  texture_bridge_->Start();
 }
 
 VisualBridge::~VisualBridge() {

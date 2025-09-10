@@ -54,6 +54,15 @@ class WindowsView extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final texture = Texture(textureId: controller.textureId, filterQuality: filterQuality);
+    final sf = scaleFactor ?? MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final renderBox = context.findRenderObject() as RenderBox?;
+      final w = width ?? renderBox?.size.width;
+      final h = height ?? renderBox?.size.height;
+      if (w != null && h != null) {
+        controller.setSize(Size(w, h), sf);
+      }
+    });
     if (width != null || height != null) {
       return SizedBox(
         width: width,
