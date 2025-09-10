@@ -298,7 +298,9 @@ void WebviewWindowsPlugin::CreateVisualInstance(
   track_visual->put_Offset({0, 0});
   auto track_visual2 = track_visual.try_as<ABI::Windows::UI::Composition::IVisual2>();
   if (track_visual2) {
-    track_visual2->put_RelativeSizeAdjustment({1.0f, 1.0f});
+    // Centered track occupying 60% width and 30% height
+    track_visual2->put_RelativeSizeAdjustment({0.6f, 0.3f});
+    track_visual2->put_RelativeOffsetAdjustment({0.2f, 0.35f});
   } else {
     // Fallback to fixed size
     track_visual->put_Size({static_cast<float>(200), static_cast<float>(100)});
@@ -319,9 +321,9 @@ void WebviewWindowsPlugin::CreateVisualInstance(
   auto knob_visual = knob_sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
   auto knob_visual2 = knob_visual.try_as<ABI::Windows::UI::Composition::IVisual2>();
   if (knob_visual2) {
-    // Size as 40% height square; position at 80% width, centered vertically
-    knob_visual2->put_RelativeSizeAdjustment({0.2f, 0.4f});
-    knob_visual2->put_RelativeOffsetAdjustment({0.8f, 0.3f});
+    // Knob square ~80% of track height, centered vertically, aligned to right
+    knob_visual2->put_RelativeSizeAdjustment({0.12f, 0.24f});
+    knob_visual2->put_RelativeOffsetAdjustment({0.66f, 0.38f});
   } else {
     knob_visual->put_Size({40, 40});
     knob_visual->put_Offset({160, 30});
