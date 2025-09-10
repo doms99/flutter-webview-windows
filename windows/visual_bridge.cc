@@ -12,7 +12,10 @@ VisualBridge::VisualBridge(flutter::BinaryMessenger* messenger,
                            GraphicsContext* graphics_context,
                            ABI::Windows::UI::Composition::IVisual* visual)
     : texture_registrar_(texture_registrar) {
-  root_visual_ = visual;
+  // Store a reference to the root visual
+  if (visual) {
+    visual->QueryInterface(__uuidof(ABI::Windows::UI::Composition::IVisual), root_visual_.put_void());
+  }
   texture_bridge_ = std::make_unique<TextureBridgeGpu>(graphics_context, visual);
 
   flutter_texture_ = std::make_unique<flutter::TextureVariant>(
