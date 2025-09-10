@@ -13,6 +13,7 @@
 #include "webview_bridge.h"
 #include "webview_host.h"
 #include "webview_platform.h"
+#include "visual_bridge.h"
 
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d11.lib")
@@ -23,6 +24,9 @@ constexpr auto kMethodInitialize = "initialize";
 constexpr auto kMethodDispose = "dispose";
 constexpr auto kMethodInitializeEnvironment = "initializeEnvironment";
 constexpr auto kMethodGetWebViewVersion = "getWebViewVersion";
+
+constexpr auto kMethodInitializeVisual = "initializeVisual";
+constexpr auto kMethodDisposeVisual = "disposeVisual";
 
 constexpr auto kErrorCodeInvalidId = "invalid_id";
 constexpr auto kErrorCodeEnvironmentCreationFailed =
@@ -58,6 +62,7 @@ class WebviewWindowsPlugin : public flutter::Plugin {
   std::unique_ptr<WebviewPlatform> platform_;
   std::unique_ptr<WebviewHost> webview_host_;
   std::unordered_map<int64_t, std::unique_ptr<WebviewBridge>> instances_;
+  std::unordered_map<int64_t, std::unique_ptr<VisualBridge>> visual_instances_;
 
   WNDCLASS window_class_ = {};
   flutter::TextureRegistrar* textures_;
@@ -66,6 +71,8 @@ class WebviewWindowsPlugin : public flutter::Plugin {
   bool InitPlatform();
 
   void CreateWebviewInstance(
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>);
+  void CreateVisualInstance(
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>);
   // Called when a method is called on this plugin's channel from Dart.
   void HandleMethodCall(
@@ -102,6 +109,7 @@ WebviewWindowsPlugin::WebviewWindowsPlugin(flutter::TextureRegistrar* textures,
 
 WebviewWindowsPlugin::~WebviewWindowsPlugin() {
   instances_.clear();
+  visual_instances_.clear();
   UnregisterClass(window_class_.lpszClassName, nullptr);
 }
 
@@ -165,11 +173,26 @@ void WebviewWindowsPlugin::HandleMethodCall(
     return CreateWebviewInstance(std::move(result));
   }
 
+  if (method_call.method_name().compare(kMethodInitializeVisual) == 0) {
+    return CreateVisualInstance(std::move(result));
+  }
+
   if (method_call.method_name().compare(kMethodDispose) == 0) {
     if (const auto texture_id = std::get_if<int64_t>(method_call.arguments())) {
       const auto it = instances_.find(*texture_id);
       if (it != instances_.end()) {
         instances_.erase(it);
+        return result->Success();
+      }
+    }
+    return result->Error(kErrorCodeInvalidId);
+  }
+
+  if (method_call.method_name().compare(kMethodDisposeVisual) == 0) {
+    if (const auto texture_id = std::get_if<int64_t>(method_call.arguments())) {
+      const auto it = visual_instances_.find(*texture_id);
+      if (it != visual_instances_.end()) {
+        visual_instances_.erase(it);
         return result->Success();
       }
     }
@@ -229,6 +252,64 @@ void WebviewWindowsPlugin::CreateWebviewInstance(
 
         shared_result->Success(response);
       });
+}
+
+void WebviewWindowsPlugin::CreateVisualInstance(
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  if (!InitPlatform()) {
+    return result->Error(kErrorUnsupportedPlatform,
+                         "The platform is not supported");
+  }
+
+  // Create a simple Composition visual tree: root ContainerVisual with a child
+  // SpriteVisual filled with a solid color (sample content). The root visual
+  // is what we capture via TextureBridge.
+  auto compositor = platform_->graphics_context()->CreateCompositor();
+  if (!compositor) {
+    return result->Error("visual_creation_failed", "Compositor creation failed");
+  }
+
+  winrt::com_ptr<ABI::Windows::UI::Composition::IContainerVisual> root;
+  if (FAILED(compositor->CreateContainerVisual(root.put()))) {
+    return result->Error("visual_creation_failed", "Root visual creation failed");
+  }
+
+  winrt::com_ptr<ABI::Windows::UI::Composition::IVisual> root_visual =
+      root.try_as<ABI::Windows::UI::Composition::IVisual>();
+  if (!root_visual) {
+    return result->Error("visual_creation_failed", "Root cast failed");
+  }
+  root_visual->put_Size({800, 600});
+  root_visual->put_IsVisible(true);
+
+  winrt::com_ptr<ABI::Windows::UI::Composition::ISpriteVisual> sprite;
+  if (FAILED(compositor->CreateSpriteVisual(sprite.put()))) {
+    return result->Error("visual_creation_failed", "Sprite creation failed");
+  }
+
+  winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionColorBrush>
+      color_brush;
+  if (FAILED(compositor->CreateColorBrushWithColor(
+          ABI::Windows::UI::Color{255, 0, 120, 215}, color_brush.put()))) {
+    return result->Error("visual_creation_failed", "Brush creation failed");
+  }
+  sprite->put_Brush(color_brush.get());
+  auto sprite_visual = sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
+  sprite_visual->put_Size({800, 600});
+
+  winrt::com_ptr<ABI::Windows::UI::Composition::IVisualCollection> children;
+  root->get_Children(children.put());
+  children->InsertAtTop(sprite_visual.get());
+
+  auto bridge = std::make_unique<VisualBridge>(
+      messenger_, textures_, platform_->graphics_context(), root_visual.get());
+  auto texture_id = bridge->texture_id();
+  visual_instances_[texture_id] = std::move(bridge);
+
+  auto response = flutter::EncodableValue(flutter::EncodableMap{
+      {flutter::EncodableValue("textureId"), flutter::EncodableValue(texture_id)},
+  });
+  result->Success(response);
 }
 
 bool WebviewWindowsPlugin::InitPlatform() {

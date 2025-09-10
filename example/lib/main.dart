@@ -33,10 +33,15 @@ class _ExampleBrowser extends State<ExampleBrowser> {
   final List<StreamSubscription> _subscriptions = [];
   bool _isWebviewSuspended = false;
 
+  // New: Generic Windows view controller
+  final _windowsViewController = WindowsViewController();
+  bool _windowsViewReady = false;
+
   @override
   void initState() {
     super.initState();
     initPlatformState();
+    initWindowsView();
   }
 
   Future<void> initPlatformState() async {
@@ -53,8 +58,7 @@ class _ExampleBrowser extends State<ExampleBrowser> {
         _textController.text = url;
       }));
 
-      _subscriptions
-          .add(_controller.containsFullScreenElementChanged.listen((flag) {
+      _subscriptions.add(_controller.containsFullScreenElementChanged.listen((flag) {
         debugPrint('Contains fullscreen element: $flag');
         windowManager.setFullScreen(flag);
       }));
@@ -90,6 +94,17 @@ class _ExampleBrowser extends State<ExampleBrowser> {
                 ));
       });
     }
+  }
+
+  Future<void> initWindowsView() async {
+    try {
+      await _windowsViewController.initialize();
+      await _windowsViewController.setFpsLimit(60);
+      if (!mounted) return;
+      setState(() {
+        _windowsViewReady = true;
+      });
+    } catch (_) {}
   }
 
   Widget compositeView() {
@@ -153,8 +168,7 @@ class _ExampleBrowser extends State<ExampleBrowser> {
                         StreamBuilder<LoadingState>(
                             stream: _controller.loadingState,
                             builder: (context, snapshot) {
-                              if (snapshot.hasData &&
-                                  snapshot.data == LoadingState.loading) {
+                              if (snapshot.hasData && snapshot.data == LoadingState.loading) {
                                 return LinearProgressIndicator();
                               } else {
                                 return SizedBox();
@@ -162,6 +176,19 @@ class _ExampleBrowser extends State<ExampleBrowser> {
                             }),
                       ],
                     ))),
+            SizedBox(height: 20),
+            // New: show a generic WindowsView with a solid color SpriteVisual
+            if (_windowsViewReady)
+              SizedBox(
+                width: 400,
+                height: 300,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
+                  child: WindowsView(_windowsViewController, filterQuality: FilterQuality.medium),
+                ),
+              )
+            else
+              const Text('Initializing WindowsView...'),
           ],
         ),
       );
@@ -189,8 +216,7 @@ class _ExampleBrowser extends State<ExampleBrowser> {
           title: StreamBuilder<String>(
         stream: _controller.title,
         builder: (context, snapshot) {
-          return Text(
-              snapshot.hasData ? snapshot.data! : 'WebView (Windows) Example');
+          return Text(snapshot.hasData ? snapshot.data! : 'WebView (Windows) Example');
         },
       )),
       body: Center(
@@ -208,13 +234,11 @@ class _ExampleBrowser extends State<ExampleBrowser> {
         content: Text('WebView has requested permission \'$kind\''),
         actions: <Widget>[
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, WebviewPermissionDecision.deny),
+            onPressed: () => Navigator.pop(context, WebviewPermissionDecision.deny),
             child: const Text('Deny'),
           ),
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, WebviewPermissionDecision.allow),
+            onPressed: () => Navigator.pop(context, WebviewPermissionDecision.allow),
             child: const Text('Allow'),
           ),
         ],
@@ -227,6 +251,7 @@ class _ExampleBrowser extends State<ExampleBrowser> {
   @override
   void dispose() {
     _subscriptions.forEach((s) => s.cancel());
+    _windowsViewController.disposeView();
     _controller.dispose();
     super.dispose();
   }
