@@ -330,8 +330,8 @@ void WebviewWindowsPlugin::CreateVisualInstance(
   // Insert visuals into root
   winrt::com_ptr<ABI::Windows::UI::Composition::IVisualCollection> children;
   root->get_Children(children.put());
-  children->InsertAtTop(knob_visual.get());
   children->InsertAtTop(track_visual.get());
+  children->InsertAtTop(knob_visual.get());
 
   auto bridge = std::make_unique<VisualBridge>(
       messenger_, textures_, platform_->graphics_context(), root_visual.get());
