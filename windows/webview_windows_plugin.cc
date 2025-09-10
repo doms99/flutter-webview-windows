@@ -281,72 +281,44 @@ void WebviewWindowsPlugin::CreateVisualInstance(
   root_visual->put_Size({200, 100});
   root_visual->put_IsVisible(true);
 
-  // Create a ShapeVisual to host rounded rectangles
-  winrt::com_ptr<ABI::Windows::UI::Composition::IShapeVisual> shape_visual;
-  if (FAILED(compositor->CreateShapeVisual(shape_visual.put()))) {
-    return result->Error("visual_creation_failed", "ShapeVisual creation failed");
+  // Build switch using two SpriteVisuals (track + knob) for broader API support
+  winrt::com_ptr<ABI::Windows::UI::Composition::ISpriteVisual> track_sprite;
+  if (FAILED(compositor->CreateSpriteVisual(track_sprite.put()))) {
+    return result->Error("visual_creation_failed", "Track sprite failed");
   }
-  auto shape_as_visual = shape_visual.try_as<ABI::Windows::UI::Composition::IVisual>();
-  shape_as_visual->put_Size({120, 60});
-
-  // Track geometry: rounded rectangle 120x60, radius 30
-  winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionRoundedRectangleGeometry> track_geometry;
-  if (FAILED(compositor->CreateRoundedRectangleGeometry(track_geometry.put()))) {
-    return result->Error("visual_creation_failed", "Track geometry failed");
-  }
-  track_geometry->put_Size({120, 60});
-  track_geometry->put_CornerRadius({30, 30});
-  track_geometry->put_Offset({0, 0});
-
-  // Track brush (on/checked): green
   winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionColorBrush> track_brush;
   if (FAILED(compositor->CreateColorBrushWithColor(
           ABI::Windows::UI::Color{255, 52, 199, 89}, track_brush.put()))) {
     return result->Error("visual_creation_failed", "Track brush failed");
   }
+  auto track_brush_base =
+      track_brush.try_as<ABI::Windows::UI::Composition::ICompositionBrush>();
+  track_sprite->put_Brush(track_brush_base.get());
+  auto track_visual = track_sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
+  track_visual->put_Size({120, 60});
+  track_visual->put_Offset({40, 20});
 
-  // Track shape
-  winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionSpriteShape> track_shape;
-  if (FAILED(compositor->CreateSpriteShape(track_shape.put()))) {
-    return result->Error("visual_creation_failed", "Track shape failed");
+  winrt::com_ptr<ABI::Windows::UI::Composition::ISpriteVisual> knob_sprite;
+  if (FAILED(compositor->CreateSpriteVisual(knob_sprite.put()))) {
+    return result->Error("visual_creation_failed", "Knob sprite failed");
   }
-  track_shape->put_Geometry(track_geometry.get());
-  track_shape->put_FillBrush(track_brush.get());
-
-  // Knob geometry: rounded rectangle 52x52, radius 26, offset to the right
-  winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionRoundedRectangleGeometry> knob_geometry;
-  if (FAILED(compositor->CreateRoundedRectangleGeometry(knob_geometry.put()))) {
-    return result->Error("visual_creation_failed", "Knob geometry failed");
-  }
-  knob_geometry->put_Size({52, 52});
-  knob_geometry->put_CornerRadius({26, 26});
-  knob_geometry->put_Offset({66, 4});
-
-  // Knob brush: white
   winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionColorBrush> knob_brush;
   if (FAILED(compositor->CreateColorBrushWithColor(
           ABI::Windows::UI::Color{255, 255, 255, 255}, knob_brush.put()))) {
     return result->Error("visual_creation_failed", "Knob brush failed");
   }
+  auto knob_brush_base =
+      knob_brush.try_as<ABI::Windows::UI::Composition::ICompositionBrush>();
+  knob_sprite->put_Brush(knob_brush_base.get());
+  auto knob_visual = knob_sprite.try_as<ABI::Windows::UI::Composition::IVisual>();
+  knob_visual->put_Size({52, 52});
+  knob_visual->put_Offset({74, 24});
 
-  // Knob shape
-  winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionSpriteShape> knob_shape;
-  if (FAILED(compositor->CreateSpriteShape(knob_shape.put()))) {
-    return result->Error("visual_creation_failed", "Knob shape failed");
-  }
-  knob_shape->put_Geometry(knob_geometry.get());
-  knob_shape->put_FillBrush(knob_brush.get());
-
-  // Add shapes to shape visual
-  winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionShapeCollection> shapes;
-  shape_visual->get_Shapes(shapes.put());
-  shapes->InsertAtTop(knob_shape.get());
-  shapes->InsertAtTop(track_shape.get());
-
-  // Insert shape visual into root
+  // Insert visuals into root
   winrt::com_ptr<ABI::Windows::UI::Composition::IVisualCollection> children;
   root->get_Children(children.put());
-  children->InsertAtTop(shape_as_visual.get());
+  children->InsertAtTop(knob_visual.get());
+  children->InsertAtTop(track_visual.get());
 
   auto bridge = std::make_unique<VisualBridge>(
       messenger_, textures_, platform_->graphics_context(), root_visual.get());
